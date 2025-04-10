@@ -1,6 +1,5 @@
 using Unity.Burst;
 using Unity.Entities;
-using Unity.Physics;
 using Unity.Transforms;
 
 [UpdateInGroup(typeof(LateSimulationSystemGroup))]

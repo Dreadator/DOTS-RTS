@@ -13,6 +13,12 @@ public class UnitSelectionUIManager : MonoBehaviour
         selectionAreaRectTransform.gameObject.SetActive(false);
     }
 
+    public void OnDestroy()
+    {
+        UnitSelectionManager.Instance.OnSelectionAreaStart -= UnitSelectionManager_OnSelectionAreaStart;
+        UnitSelectionManager.Instance.OnSelectionAreaEnd -= UnitSelectionManager_OnSelectionAreaEnd;
+    }
+
     private void Update()
     {
         if (selectionAreaRectTransform.gameObject.activeSelf)
@@ -37,5 +43,4 @@ public class UnitSelectionUIManager : MonoBehaviour
         selectionAreaRectTransform.anchoredPosition = new Vector2(selectionAreaRect.x, selectionAreaRect.y) / canvasScale;
         selectionAreaRectTransform.sizeDelta = new Vector2(selectionAreaRect.width, selectionAreaRect.height) / canvasScale;
     }
-
 }

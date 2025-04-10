@@ -105,9 +105,8 @@ partial struct ShootAttackSystem : ISystem
                 continue;
             }
             else
-            {
                 unitMover.ValueRW.targetPosition = localTransform.ValueRO.Position;
-            }
+            
 
             float3 aimDirection = targetLocalTransform.Position - localTransform.ValueRO.Position;
             aimDirection = math.normalize(aimDirection);
@@ -136,11 +135,7 @@ partial struct ShootAttackSystem : ISystem
 
             shootAttack.ValueRW.OnShoot.isTriggered = true;
             shootAttack.ValueRW.OnShoot.shootFromPosition = bulletSpawnWorldPosition;
-
-            //Entity shootLightEntity = state.EntityManager.Instantiate(entitiesReferences.shootLightPrefabEntity);
-            //SystemAPI.SetComponent(shootLightEntity, LocalTransform.FromPosition(bulletSpawnWorldPosition));
         }
-
     }
 }
 

@@ -1,17 +1,13 @@
 using Unity.Burst;
-using Unity.Collections;
 using Unity.Entities;
 
 [UpdateInGroup(typeof(LateSimulationSystemGroup))]
 partial struct HealthDeadTestSystem : ISystem
 {
-
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        //EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
-        
-        EntityCommandBuffer entityCommandBuffer = 
+        EntityCommandBuffer entityCommandBuffer =
             SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
 
         foreach ((RefRO<Health> health, Entity entity)
@@ -26,5 +22,4 @@ partial struct HealthDeadTestSystem : ISystem
             }
         }
     }
-
 }

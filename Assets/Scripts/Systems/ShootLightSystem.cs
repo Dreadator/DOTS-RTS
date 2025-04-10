@@ -9,13 +9,28 @@ partial struct ShootLightDestroySystem : ISystem
         EntityCommandBuffer entityCommandBuffer =
             SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
 
-        foreach ((RefRW<ShootLight> shootLight, Entity entity) in SystemAPI.Query<RefRW<ShootLight>>().WithEntityAccess()) 
+        ShootLightDestroyJob sldJob = new ShootLightDestroyJob 
         {
-            shootLight.ValueRW.timer -= SystemAPI.Time.DeltaTime;
+            ecbParallel = entityCommandBuffer.AsParallelWriter(),
+            deltaTime = SystemAPI.Time.DeltaTime,
+        };
+        sldJob.ScheduleParallel();
+    }
 
-            if (shootLight.ValueRO.timer <= 0f) 
+
+    [BurstCompile]
+    public partial struct ShootLightDestroyJob : IJobEntity
+    {
+        public EntityCommandBuffer.ParallelWriter ecbParallel;
+        public float deltaTime;
+
+        public void Execute([ChunkIndexInQuery] int chunkIndex, ref ShootLight shootLight, Entity entity)
+        {
+            shootLight.timer -= deltaTime;
+
+            if (shootLight.timer <= 0f)
             {
-                entityCommandBuffer.DestroyEntity(entity);
+                ecbParallel.DestroyEntity(chunkIndex, entity);
             }
         }
     }

@@ -8,18 +8,32 @@ partial struct MoveOverrideSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        foreach ((RefRO<LocalTransform> localTransform, RefRO<MoveOverride> moveOverride,EnabledRefRW<MoveOverride> moveOverrideEnabled, RefRW<UnitMover> unitMover)
-            in SystemAPI.Query<RefRO<LocalTransform>, RefRO<MoveOverride>, EnabledRefRW<MoveOverride>,RefRW<UnitMover>>()) 
+        var ecb = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>()
+            .CreateCommandBuffer(state.WorldUnmanaged);
+
+        MoveOverrideJob moveOverrideJob = new MoveOverrideJob
         {
-            if (math.distancesq(localTransform.ValueRO.Position, moveOverride.ValueRO.targetPosition) > UnitMoverSystem.REACHED_TARGET_POSITION_SQ)
+            ecbParallel = ecb.AsParallelWriter(),
+        };
+        state.Dependency = moveOverrideJob.ScheduleParallel(state.Dependency);
+    }
+
+    [BurstCompile]
+    public partial struct MoveOverrideJob : IJobEntity
+    {
+        public EntityCommandBuffer.ParallelWriter ecbParallel;
+
+        public void Execute(Entity entity, in LocalTransform localTransform, in MoveOverride moveOverride, ref UnitMover unitMover, [ChunkIndexInQuery] int chunkIndex)
+        {
+            if (math.distancesq(localTransform.Position, moveOverride.targetPosition) > UnitMoverSystem.REACHED_TARGET_POSITION_SQ)
             {
                 // move closer
-                unitMover.ValueRW.targetPosition = moveOverride.ValueRO.targetPosition;
+                unitMover.targetPosition = moveOverride.targetPosition;
             }
-            else 
+            else
             {
                 // reached move override target position
-                moveOverrideEnabled.ValueRW = false;
+                 ecbParallel.SetComponentEnabled<MoveOverride>(chunkIndex, entity, false);
             }
         }
     }

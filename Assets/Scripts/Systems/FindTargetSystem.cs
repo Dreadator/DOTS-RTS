@@ -1,7 +1,6 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Physics;
 using Unity.Transforms;
@@ -82,7 +81,6 @@ partial struct FindTargetSystem : ISystem
                     Unit targetUnit = UnitLookup[hit.Entity];
                     if (targetUnit.Faction != findTarget.targetFaction) continue;
 
-                    // Calculate the distance to the current entity
                     float3 targetPosition = LocalToWorldLookup[hit.Entity].Position;
                     float distance = math.distance(localTransform.Position, targetPosition);
 
@@ -104,58 +102,5 @@ partial struct FindTargetSystem : ISystem
             distanceHitList.Dispose();
         }
     }
-
-
-    /*
-    public void OnUpdate(ref SystemState state)
-    {
-
-        foreach ((RefRO<LocalTransform> localTransform, RefRW<FindTarget> findTarget, RefRW<Target> target)
-            in SystemAPI.Query<RefRO<LocalTransform>, RefRW<FindTarget>, RefRW<Target>>())
-        {
-            findTarget.ValueRW.timer -= SystemAPI.Time.DeltaTime;
-
-            if (findTarget.ValueRO.timer > 0f)
-            {
-                continue;
-            }
-            findTarget.ValueRW.timer = findTarget.ValueRO.timerMax;
-
-            distanceHitList.Clear();
-
-            if (collisionWorld.OverlapSphere(localTransform.ValueRO.Position,
-                   findTarget.ValueRO.range, ref distanceHitList, collisionFilter))
-            {
-                Entity closestEntity = Entity.Null;
-                float closestDistance = float.MaxValue;
-
-                foreach (DistanceHit distanceHit in distanceHitList)
-                {
-
-                    if (!SystemAPI.Exists(distanceHit.Entity) || !SystemAPI.HasComponent<Unit>(distanceHit.Entity))
-                        continue;
-
-                    Unit targetUnit = SystemAPI.GetComponent<Unit>(distanceHit.Entity);
-
-                    if (targetUnit.Faction == findTarget.ValueRO.targetFaction)
-                    {
-                        float3 targetPosition = SystemAPI.GetComponent<LocalToWorld>(distanceHit.Entity).Position;
-                        float distance = math.distance(localTransform.ValueRO.Position, targetPosition);
-
-                        if (distance < closestDistance)
-                        {
-                            closestDistance = distance;
-                            closestEntity = distanceHit.Entity;
-                        }
-                    }
-                }
-
-                if (closestEntity != Entity.Null)
-                {
-                    target.ValueRW.targetEntity = closestEntity;
-                }
-            }
-        }
-    }*/
 }
 
