@@ -10,9 +10,6 @@ partial struct ZombieSpawnerSystem : ISystem
     {
         EntitiesReferences entitiesReferences = SystemAPI.GetSingleton<EntitiesReferences>();
 
-        EntityCommandBuffer entityCommandBuffer =
-           SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
-
         var ecb = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>().
             CreateCommandBuffer(state.WorldUnmanaged);
 
