@@ -10,12 +10,28 @@ partial struct ShootLightSpawnerSytem : ISystem
     {
         EntitiesReferences entitiesReferences = SystemAPI.GetSingleton<EntitiesReferences>();
 
-        foreach (RefRO<ShootAttack> shootAttack in SystemAPI.Query<RefRO<ShootAttack>>()) 
+        EntityCommandBuffer ecb = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>()
+            .CreateCommandBuffer(state.WorldUnmanaged);
+
+        ShootLightSpawnJob shootLightSpawnJob = new ShootLightSpawnJob
         {
-            if (shootAttack.ValueRO.OnShoot.isTriggered)
+            shootLightPrefab = entitiesReferences.shootLightPrefabEntity,
+            ECB = ecb.AsParallelWriter(),
+        };
+        shootLightSpawnJob.ScheduleParallel();
+    }
+
+    [BurstCompile]
+    public partial struct ShootLightSpawnJob : IJobEntity
+    {
+        public Entity shootLightPrefab;
+        public EntityCommandBuffer.ParallelWriter ECB;
+        public void Execute([EntityIndexInQuery] int entityIndexInQuery,in ShootAttack shootAttack) 
+        {
+            if (shootAttack.OnShoot.isTriggered)
             {
-                Entity shootLightEntity = state.EntityManager.Instantiate(entitiesReferences.shootLightPrefabEntity);
-                SystemAPI.SetComponent(shootLightEntity, LocalTransform.FromPosition(shootAttack.ValueRO.OnShoot.shootFromPosition));
+                Entity shootLightEntity = ECB.Instantiate(entityIndexInQuery,shootLightPrefab);
+                ECB.SetComponent(entityIndexInQuery ,shootLightEntity, LocalTransform.FromPosition(shootAttack.OnShoot.shootFromPosition));
             }
         }
     }

@@ -21,8 +21,8 @@ partial struct BulletMoverSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        var ecbSingleton = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
-        var ecb = ecbSingleton.CreateCommandBuffer(state.WorldUnmanaged);
+        EntityCommandBuffer ecb = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>()
+            .CreateCommandBuffer(state.WorldUnmanaged);
 
         var shootVictimLookup = SystemAPI.GetComponentLookup<ShootVictim>(isReadOnly: true);
         var healthLookup = SystemAPI.GetComponentLookup<Health>(isReadOnly: true);

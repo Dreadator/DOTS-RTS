@@ -5,85 +5,125 @@ using Unity.Mathematics;
 using Unity.Physics;
 using Unity.Transforms;
 
+[UpdateInGroup(typeof(SimulationSystemGroup))]
 partial struct MeleeAttackSystem : ISystem
 {
+    public void OnCreate(ref SystemState state)
+    {
+        state.RequireForUpdate<PhysicsWorldSingleton>();
+    }
+
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
         PhysicsWorldSingleton physicsWorldSingleton = SystemAPI.GetSingleton<PhysicsWorldSingleton>();
-        CollisionWorld collisionWorld = physicsWorldSingleton.CollisionWorld;
-        NativeList<RaycastHit> raycastHitsList = new NativeList<RaycastHit>(Allocator.Temp);
 
-        foreach ((RefRW<LocalTransform> localTransform, RefRW<MeleeAttack> meleeAttack, RefRO<Target> target, RefRW<UnitMover> unitMover) 
-            in SystemAPI.Query< RefRW<LocalTransform>, RefRW<MeleeAttack>, RefRO<Target>, RefRW<UnitMover>>().WithDisabled<MoveOverride>()) 
+        var ecb = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>()
+            .CreateCommandBuffer(state.WorldUnmanaged);
+
+        var healthLookup = SystemAPI.GetComponentLookup<Health>(isReadOnly: true);
+        var moveOverrideLookup = SystemAPI.GetComponentLookup<MoveOverride>(isReadOnly: true);
+
+        MeleeAttackJob meleeAttackJob = new MeleeAttackJob
         {
-            if (target.ValueRO.targetEntity == Entity.Null)
-                continue;
+            DeltaTime = SystemAPI.Time.DeltaTime,
+            PhysicsWorldSingleton = physicsWorldSingleton,
+            HealthLookup = healthLookup,
+            MoveOverrideLookup = moveOverrideLookup,
+            ECB = ecb.AsParallelWriter(),
+        };
+        meleeAttackJob.ScheduleParallel();
+    }
 
-            LocalTransform targetLocalTransform = SystemAPI.GetComponent<LocalTransform>(target.ValueRO.targetEntity);
+    [BurstCompile]
+    public partial struct MeleeAttackJob : IJobEntity
+    {
+        public float DeltaTime;
+        [ReadOnly] public PhysicsWorldSingleton PhysicsWorldSingleton;
+
+        [ReadOnly] public ComponentLookup<Health> HealthLookup;
+        [ReadOnly] public ComponentLookup<MoveOverride> MoveOverrideLookup;
+
+        public EntityCommandBuffer.ParallelWriter ECB;
+
+        public void Execute([EntityIndexInQuery] int entityIndexInQuery,
+            ref LocalTransform localTransform,
+            ref MeleeAttack meleeAttack,
+            in Target target,
+            ref UnitMover unitMover, Entity entity)
+        {
+            if (MoveOverrideLookup.IsComponentEnabled(entity)) return;
+            
+            if (target.targetEntity == Entity.Null) return;
+
+            CollisionWorld collisionWorld = PhysicsWorldSingleton.CollisionWorld;
+            NativeList<RaycastHit> raycastHitsList = new(Allocator.TempJob);
+
+            LocalTransform targetLocalTransform = target.targetLocalTransform;
             float meleeAttackDistanceSq = 2f;
 
-            bool isCloseEnoughToAttack = math.distancesq(localTransform.ValueRO.Position, targetLocalTransform.Position) > meleeAttackDistanceSq;
+            bool isCloseEnoughToAttack = math.distancesq(localTransform.Position, targetLocalTransform.Position) > meleeAttackDistanceSq;
 
             bool isTouchingTarget = false;
 
-            if (!isCloseEnoughToAttack) 
+            if (!isCloseEnoughToAttack)
             {
-                float3 dirToTarget = targetLocalTransform.Position - localTransform.ValueRO.Position;
+                float3 dirToTarget = targetLocalTransform.Position - localTransform.Position;
                 dirToTarget = math.normalize(dirToTarget);
 
                 float rayOffset = 0.4f;
 
-                RaycastInput raycastInput = new RaycastInput 
+                RaycastInput raycastInput = new RaycastInput
                 {
-                    Start = localTransform.ValueRO.Position,
-                    End = localTransform.ValueRO.Position + dirToTarget * (meleeAttack.ValueRO.colliderSize + rayOffset),
+                    Start = localTransform.Position,
+                    End = localTransform.Position + dirToTarget * (meleeAttack.colliderSize + rayOffset),
                     Filter = CollisionFilter.Default,
                 };
                 raycastHitsList.Clear();
-                
-                if(collisionWorld.CastRay(raycastInput, ref raycastHitsList)) 
+
+                if (collisionWorld.CastRay(raycastInput, ref raycastHitsList))
                 {
-                    foreach(RaycastHit raycastHit in raycastHitsList) 
+                    foreach (RaycastHit raycastHit in raycastHitsList)
                     {
-                        if(raycastHit.Entity == target.ValueRO.targetEntity) 
+                        if (raycastHit.Entity == target.targetEntity)
                         {
                             // found target, and close enough to attack
-                            isTouchingTarget |= true;
+                            isTouchingTarget = true;
                             break;
                         }
                     }
                 }
             }
 
-            if (!isCloseEnoughToAttack) 
+            if (!isCloseEnoughToAttack && !isTouchingTarget)
             {
-                // too far
-                unitMover.ValueRW.targetPosition = targetLocalTransform.Position;
+                unitMover.targetPosition = targetLocalTransform.Position;
             }
-            else 
+            else
             {
-                // close enough
-                unitMover.ValueRW.targetPosition = localTransform.ValueRO.Position;
+                unitMover.targetPosition = localTransform.Position;
 
-                float3 dirToTarget = targetLocalTransform.Position - localTransform.ValueRO.Position;
+                float3 dirToTarget = targetLocalTransform.Position - localTransform.Position;
                 dirToTarget = math.normalize(dirToTarget);
 
-                localTransform.ValueRW.Rotation = math.slerp(localTransform.ValueRO.Rotation,
+                localTransform.Rotation = math.slerp(localTransform.Rotation,
                                             quaternion.LookRotation(dirToTarget, math.up()),
-                                            SystemAPI.Time.DeltaTime * unitMover.ValueRO.rotationSpeed);
+                                            DeltaTime * unitMover.rotationSpeed);
 
-                meleeAttack.ValueRW.timer -= SystemAPI.Time.DeltaTime;
-                if(meleeAttack.ValueRO.timer > 0f) 
+                meleeAttack.timer -= DeltaTime;
+                if (meleeAttack.timer > 0f)
                 {
-                    continue;
+                    raycastHitsList.Dispose();
+                    return;
                 }
-                meleeAttack.ValueRW.timer = meleeAttack.ValueRO.timerMax;
+                meleeAttack.timer = meleeAttack.timerMax;
 
-                RefRW<Health> targetHealth = SystemAPI.GetComponentRW<Health>(target.ValueRO.targetEntity);
-                targetHealth.ValueRW.healthAmount -= meleeAttack.ValueRO.damageAmount;
-                targetHealth.ValueRW.OnHealthChanged = true;
+                Health targetHealth = HealthLookup[target.targetEntity];
+                targetHealth.healthAmount -= meleeAttack.damageAmount;
+                targetHealth.OnHealthChanged = true;
+                ECB.SetComponent(entityIndexInQuery, target.targetEntity, targetHealth);
             }
+            raycastHitsList.Dispose();
         }
     }
 }

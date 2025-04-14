@@ -57,14 +57,14 @@ partial struct FindTargetSystem : ISystem
 
         public void Execute(in LocalTransform localTransform, ref FindTarget findTarget, ref Target target)
         {
-            CollisionWorld collisionWorld = PhysicsWorldSingleton.CollisionWorld;
-            NativeList<DistanceHit> distanceHitList = new(Allocator.TempJob);
-
             findTarget.timer -= DeltaTime;
             if (findTarget.timer > 0f)
                 return;
 
             findTarget.timer = findTarget.timerMax;
+
+            CollisionWorld collisionWorld = PhysicsWorldSingleton.CollisionWorld;
+            NativeList<DistanceHit> distanceHitList = new(Allocator.TempJob);
 
             if (collisionWorld.OverlapSphere(localTransform.Position,
                    findTarget.range, ref distanceHitList, CollisionFilter))
