@@ -16,7 +16,7 @@ partial struct ZombieSpawnerSystem : ISystem
         var job = new ZombieSpawnerJob
         {
             DeltaTime = SystemAPI.Time.DeltaTime,
-            RandomSeed = (uint)DateTime.Now.Ticks,
+            RandomSeed = (uint)SystemAPI.Time.ElapsedTime,
             PrefabToInstantiate = entitiesReferences.zombiePrefabEntity,
             ECB = ecb.AsParallelWriter(),
         };
@@ -45,7 +45,7 @@ partial struct ZombieSpawnerSystem : ISystem
 
             ECB.SetComponent(entityIndexInQuery, zombieEntity, LocalTransform.FromPosition(localTransform.Position));
 
-            var random = new Unity.Mathematics.Random(RandomSeed + (uint)entityIndexInQuery);
+            var random = new Unity.Mathematics.Random(RandomSeed + (uint)entityIndexInQuery + 1);
 
             ECB.AddComponent(entityIndexInQuery, zombieEntity, new RandomWalking
             {
